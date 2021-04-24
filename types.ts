@@ -9,6 +9,8 @@ export const Steps = [
 	'Done!'
 ] as const;
 
+export type ProgressCallback = (step: typeof Steps[number]) => void;
+
 interface TransformerCbProps {
 	fileBaseName: string;
 	fileAbsPath: string;
@@ -28,14 +30,14 @@ export interface PackerOpts {
 	 * These should use the same glob syntax as `.gitignore` files, and are the main input (aside from `rootDir`) to the program in terms of computing what gets included in the archive
 	 * - Just like `.gitignore`, you can override previous exclusions
 	 * - Order matters!
-	 * - Can be absolute or relative file paths
+	 * - Only filenames are considered for matching, but you can pass in relative or absolute paths and they will be auto-converted to basenames.
 	 */
-	ignoreListFiles?: string[];
+	ignoreListFileNames?: string[];
 	/**
 	 * Whether or not to check for, and use, .gitignore files as part of the ruleset
 	 * @default true
 	 */
-	useGitIgnoreInput?: boolean;
+	useGitIgnoreFiles?: boolean;
 	/**
 	 * If true, adds some default excludes that should apply to most projects and helps avoid accidental bundling
 	 * @default true
@@ -90,4 +92,9 @@ export interface PackerOpts {
 	 * A callback to track progress
 	 */
 	onStepChange?: (step: typeof Steps[number]) => void;
+	/**
+	 * More console.log(s)
+	 * @default false
+	 */
+	verbose?: boolean;
 }

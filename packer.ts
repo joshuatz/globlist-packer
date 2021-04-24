@@ -8,7 +8,7 @@ import { removeEndSlash } from './utils';
 import { PackerOpts } from './types';
 
 const DEFAULT_ARCHIVE_BASENAME = 'packed';
-const BUNDLED_IGNORES_ABS_FILEPATH = path.normalize(`${__dirname}${path.sep}default-ignores.txt`);
+const DEFAULT_IGNORE_GLOBS = ['node_modules', '.git'];
 
 function getAbsNormalized(base: string, relativePathNoSlashStart: string) {
 	return path.normalize(`${base}${path.sep}${relativePathNoSlashStart}`);
@@ -26,8 +26,8 @@ function replaceLastInstanceInString(input: string, replace: string, replacement
 
 export function GloblistPacker({
 	rootDir,
-	ignoreListFiles = [],
-	useGitIgnoreInput = true,
+	ignoreListFileNames = [],
+	useGitIgnoreFiles = true,
 	includeDefaultIgnores = true,
 	includeEmpty = false,
 	followSymlink = false,
@@ -38,47 +38,88 @@ export function GloblistPacker({
 	archiveOptions = {},
 	maxFileCount,
 	fileNameTransformer = () => true,
-	onStepChange = () => {}
+	onStepChange = () => {},
+	verbose = false
 }: PackerOpts) {
 	return new Promise(async (resolve, reject) => {
+		const logger = (...args: any[]) => {
+			if (verbose) {
+				console.log(...args);
+			}
+		};
+		logger({
+			rootDir,
+			ignoreListFileNames,
+			useGitIgnoreFiles,
+			includeDefaultIgnores,
+			includeEmpty,
+			followSymlink,
+			outDir,
+			archiveName,
+			archiveType,
+			archiveRootDirName,
+			archiveOptions,
+			maxFileCount,
+			verbose
+		});
 		const rootDirUnslashedEnd = removeEndSlash(rootDir);
-		const ignoreListFilesBasenames = ignoreListFiles.map((i) => path.basename(i));
+		const ignoreListFilesBasenames = ignoreListFileNames.map((i) => path.basename(i));
 
 		/**
 		 * NOTE: Order ***really*** matters for ignores files array.
 		 * @see https://github.com/npm/ignore-walk#options
 		 */
 
-		let ignoreFiles = [];
+		let ignoreFileNames = [];
 
-		// @TODO this is not working
-		// I think that ignore-walk only applies ignore files if they reside at the same level. So maybe if I prefixed every line of the ignore file with the absolute path of rootdir?
+		// @TODO - Improve?
+		// This does not seem like the *optimal* approach, but unfortunately,
+		// is the only one that works with ignore-walk. Since it order matters,
+		// and the walker only takes files into account based on what actual
+		// directory they reside in, injecting an actual file into the root dir
+		// before it is walked is the only thing I can come up with right now.
+		// Post-filtering the file list with something like `ignore()` would not
+		// work because of the order issue (I could be excluding something that
+		// a user provided list explicitly approved with `!{pattern}`
+		const GENERATED_TEMP_IGNORE_FILENAME = `globlist-packer-defaults-${Date.now()}.ignore`;
+		const GENERATED_TEMP_IGNORE_PATH = `${rootDirUnslashedEnd}${path.sep}${GENERATED_TEMP_IGNORE_FILENAME}`;
 		if (includeDefaultIgnores) {
-			ignoreFiles.push(BUNDLED_IGNORES_ABS_FILEPATH);
+			ignoreFileNames.push(GENERATED_TEMP_IGNORE_FILENAME);
+			DEFAULT_IGNORE_GLOBS.push(GENERATED_TEMP_IGNORE_FILENAME);
+			await fse.writeFile(GENERATED_TEMP_IGNORE_PATH, DEFAULT_IGNORE_GLOBS.join('\n'));
 		}
 
-		if (useGitIgnoreInput) {
-			ignoreFiles.push('.gitignore');
+		if (useGitIgnoreFiles) {
+			ignoreFileNames.push('.gitignore');
 		}
 
 		// Add user provided ignore lists last, so they can override everything else
-		ignoreFiles = ignoreFiles.concat(ignoreListFilesBasenames);
+		// Remember: order matters; this must come last.
+		ignoreFileNames = ignoreFileNames.concat(ignoreListFilesBasenames);
 
-		console.log(ignoreFiles);
+		logger(ignoreFileNames);
 
 		const walkerArgs: WalkerOptions = {
 			path: rootDirUnslashedEnd,
 			follow: followSymlink,
-			ignoreFiles,
+			ignoreFiles: ignoreFileNames,
 			includeEmpty
 		};
 
 		onStepChange('Scanning input files');
 		const fileListResult = await IgnoreWalk(walkerArgs);
 
+		// IMMEDIATELY clean up the temp ignore file if used
+		if (includeDefaultIgnores) {
+			await fse.remove(GENERATED_TEMP_IGNORE_PATH);
+			logger(`Deleted ${GENERATED_TEMP_IGNORE_PATH}`);
+		}
+
 		if (maxFileCount && fileListResult.length > maxFileCount) {
 			return reject(`Matched file count of ${fileListResult.length} exceeds maxFileCount of ${maxFileCount}`);
 		}
+
+		logger(fileListResult);
 
 		let archiveFileNameBaseNoExt: string | undefined = undefined;
 
@@ -128,19 +169,19 @@ export function GloblistPacker({
 		});
 		// Attach listeners to archiver
 		archiveOutStream.on('close', async () => {
-			console.log(`${archive.pointer()} total bytes`);
-			console.log('archiver has been finalized and the output file descriptor has closed.');
+			logger(`${archive.pointer()} total bytes`);
+			logger('archiver has been finalized and the output file descriptor has closed.');
 			// Cleanup temp dir
 			onStepChange('Cleaning Up');
 			await fse.remove(tempDirPath);
-			console.log(`Deleted ${tempDirPath}`);
+			logger(`Deleted ${tempDirPath}`);
 			onStepChange('Done!');
 			resolve(archiveAbsPath);
 		});
 		archive.on('error', reject);
 		archive.on('warning', (err) => {
 			if (err.code === 'ENOENT') {
-				console.log(err);
+				logger(err);
 			} else {
 				reject(err);
 			}
@@ -159,6 +200,7 @@ export function GloblistPacker({
 		}
 
 		onStepChange('Copying files');
+		logger(`Copying ${fileListResult.length} file(s) to ${rootDestDirPath}`);
 
 		await Promise.all(
 			fileListResult.map(async (relativeFilePath) => {
