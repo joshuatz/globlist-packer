@@ -13,7 +13,7 @@ import {
 import { Listr } from 'listr2';
 import { GloblistPacker } from './packer';
 import { ProgressCallback, Steps } from './types';
-import Package = require('./package.json');
+import Package = require('../package.json');
 
 const progressListeners: ProgressCallback[] = [];
 

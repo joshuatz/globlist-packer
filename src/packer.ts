@@ -4,7 +4,7 @@ import archiver = require('archiver');
 import * as fse from 'fs-extra';
 import * as os from 'os';
 import * as path from 'path';
-import { removeEndSlash } from './utils';
+import { removeEndSlash } from '../utils';
 import { PackerOpts } from './types';
 
 const DEFAULT_ARCHIVE_BASENAME = 'packed';
