@@ -2,11 +2,14 @@
 	"exclude": ["node_modules"],
 	"include": ["src/**/*"],
 	"compilerOptions": {
+		"module": "CommonJS",
 		"checkJs": false,
 		"allowJs": false,
 		"noEmit": false,
 		"strict": true,
 		"esModuleInterop": true,
+		"moduleResolution": "node",
+		"allowSyntheticDefaultImports": true,
 		"resolveJsonModule": true,
 		"maxNodeModuleJsDepth": 0,
 		"outDir": "dist"

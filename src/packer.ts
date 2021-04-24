@@ -1,10 +1,10 @@
 import type { WalkerOptions } from 'ignore-walk';
 import IgnoreWalk = require('ignore-walk');
-import archiver = require('archiver');
+import Archiver = require('archiver');
 import * as fse from 'fs-extra';
 import * as os from 'os';
 import * as path from 'path';
-import { removeEndSlash } from '../utils';
+import { removeEndSlash } from './utils';
 import { PackerOpts } from './types';
 
 const DEFAULT_ARCHIVE_BASENAME = 'packed';
@@ -86,7 +86,12 @@ export function GloblistPacker({
 		if (includeDefaultIgnores) {
 			ignoreFileNames.push(GENERATED_TEMP_IGNORE_FILENAME);
 			DEFAULT_IGNORE_GLOBS.push(GENERATED_TEMP_IGNORE_FILENAME);
-			await fse.writeFile(GENERATED_TEMP_IGNORE_PATH, DEFAULT_IGNORE_GLOBS.join('\n'));
+			const collidingFileExists = await fse.pathExists(GENERATED_TEMP_IGNORE_PATH);
+			if (!collidingFileExists) {
+				await fse.writeFile(GENERATED_TEMP_IGNORE_PATH, DEFAULT_IGNORE_GLOBS.join('\n'));
+			} else {
+				throw new Error(`Fatal: Failed to create temporary ignore file at ${GENERATED_TEMP_IGNORE_PATH}`);
+			}
 		}
 
 		if (useGitIgnoreFiles) {
@@ -160,7 +165,7 @@ export function GloblistPacker({
 		// Create stream and archiver instance
 		const archiveAbsPath = `${destinationDir}${path.sep}${archiveBaseName}`;
 		const archiveOutStream = fse.createWriteStream(archiveAbsPath);
-		const archive = archiver(archiveType, {
+		const archive = Archiver(archiveType, {
 			...archiveOptions,
 			zlib: {
 				level: 6,

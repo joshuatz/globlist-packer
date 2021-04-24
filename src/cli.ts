@@ -5,6 +5,8 @@ import {
 	command,
 	flag,
 	multioption,
+	number as CmdNumber,
+	oneOf,
 	option,
 	optional,
 	run,
@@ -12,7 +14,7 @@ import {
 } from 'cmd-ts';
 import { Listr } from 'listr2';
 import { GloblistPacker } from './packer';
-import { ProgressCallback, Steps } from './types';
+import { ArchiveType, ArchiveTypeOptionsArr, ProgressCallback, Steps } from './types';
 import Package = require('../package.json');
 
 const progressListeners: ProgressCallback[] = [];
@@ -53,8 +55,9 @@ const app = command({
 		ignoreListFileNames: multioption({
 			type: CmdArray(CmdString),
 			long: 'ignorelist-files',
+			short: 'i',
 			description:
-				'Files that are formatted like .gitignore - line delimited glob patterns to include or exclude.'
+				'Files that are formatted like .gitignore - line delimited glob patterns to include or exclude.\n\tWarning: Order matters!'
 		}),
 		useGitIgnoreFiles: flag({
 			type: optional(CmdBoolean),
@@ -62,7 +65,73 @@ const app = command({
 			defaultValue: () => {
 				return true;
 			},
+			defaultValueIsSerializable: true,
 			description: 'Whether or not to check for, and use, .gitignore files as part of the ruleset'
+		}),
+		includeDefaultIgnores: flag({
+			type: optional(CmdBoolean),
+			long: 'include-default-ignores',
+			defaultValue: () => {
+				return true;
+			},
+			defaultValueIsSerializable: true,
+			description:
+				'If true, adds some default excludes that should apply to most projects and helps avoid accidental bundling'
+		}),
+		includeEmpty: flag({
+			type: optional(CmdBoolean),
+			long: 'include-empty',
+			defaultValue: () => {
+				return false;
+			},
+			defaultValueIsSerializable: true,
+			description: 'Include empty directories in the output archive'
+		}),
+		followSymlink: flag({
+			type: optional(CmdBoolean),
+			long: 'follow-symlink',
+			defaultValue: () => {
+				return false;
+			},
+			defaultValueIsSerializable: true,
+			description: 'Whether or not to follow symlinks when copying files to the archive.'
+		}),
+		outDir: option({
+			type: optional(CmdString),
+			long: 'out-dir',
+			short: 'd',
+			description:
+				'Where to save the generated archive(s). Defaults to the root directory and/or calling directory.'
+		}),
+		archiveName: option({
+			type: optional(CmdString),
+			long: 'archive-name',
+			short: 'n',
+			description:
+				'Name for the generated archive.\n\tWill default to primary non-gitignore ignore file, and if that is not available, to simply `packed.{ext}`.\n\tFile extension is optional, and will be overwritten anyways, based on `archiveType`'
+		}),
+		archiveType: option({
+			type: oneOf(ArchiveTypeOptionsArr),
+			long: 'archive-type',
+			short: 't',
+			defaultValue: () => {
+				return 'tar' as ArchiveType;
+			},
+			defaultValueIsSerializable: true,
+			description: 'Type of generated archive file. Not the same as file extension.'
+		}),
+		archiveRootDirName: option({
+			type: optional(CmdString),
+			long: 'archive-root-dir-name',
+			description:
+				'Inject a single folder in the root of the archive, with this name, which will contain all collected files.'
+		}),
+		maxFileCount: option({
+			type: optional(CmdNumber),
+			long: 'max-files',
+			short: 'm',
+			description:
+				'If you are worried about accidentally including a massive number of files and you want to bail out early of the archiving process if this happens, you can set a hard cap with this option.'
 		}),
 		verbose: flag({
 			type: optional(CmdBoolean),
@@ -70,16 +139,14 @@ const app = command({
 			defaultValue: () => {
 				return false;
 			},
+			defaultValueIsSerializable: true,
 			description: 'Enable extra logging to the console / stdout'
 		})
 	},
-	handler: async ({ rootDir, ignoreListFileNames, useGitIgnoreFiles, verbose }) => {
+	handler: async (args) => {
 		tasks.run();
 		await GloblistPacker({
-			rootDir,
-			ignoreListFileNames,
-			useGitIgnoreFiles,
-			verbose,
+			...args,
 			onStepChange: (updatedStep) => {
 				progressListeners.forEach((p) => p(updatedStep));
 			}
@@ -87,4 +154,6 @@ const app = command({
 	}
 });
 
-run(app, process.argv.slice(2));
+if (require.main === module) {
+	run(app, process.argv.slice(2));
+}

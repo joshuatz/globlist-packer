@@ -9,6 +9,9 @@ export const Steps = [
 	'Done!'
 ] as const;
 
+export type ArchiveType = archiver.Format;
+export const ArchiveTypeOptionsArr: ArchiveType[] = ['tar', 'zip'];
+
 export type ProgressCallback = (step: typeof Steps[number]) => void;
 
 interface TransformerCbProps {
@@ -24,6 +27,7 @@ export interface PackerOpts {
 	/**
 	 * Used as the entry point to the filewalker, and used as the base to resolve any relative paths that are passed
 	 * - Should be an absolute path
+	 * - CLI Default: process.cwd()
 	 */
 	rootDir: string;
 	/**
@@ -45,7 +49,7 @@ export interface PackerOpts {
 	 */
 	includeDefaultIgnores?: boolean;
 	/**
-	 * Include empty directories in the archive
+	 * Include empty directories in the output archive
 	 * @default false
 	 */
 	includeEmpty?: boolean;
@@ -66,10 +70,10 @@ export interface PackerOpts {
 	 */
 	archiveName?: string;
 	/**
-	 * Type of generated archive file
+	 * Type of generated archive file. Not the same as file extension.
 	 * @default 'tar'
 	 */
-	archiveType?: archiver.Format;
+	archiveType?: ArchiveType;
 	/**
 	 * Inject a single folder in the root of the archive, with this name, which will contain all collected files.
 	 * - This is desired for certain types of distributions, where you need your app name or plugin name to be the root folder, but you might not have that structure in your source code.
@@ -93,7 +97,7 @@ export interface PackerOpts {
 	 */
 	onStepChange?: (step: typeof Steps[number]) => void;
 	/**
-	 * More console.log(s)
+	 * Enable extra logging to the console / stdout
 	 * @default false
 	 */
 	verbose?: boolean;

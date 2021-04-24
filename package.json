@@ -1,11 +1,15 @@
 {
 	"name": "globlist-packer",
 	"version": "1.0.0",
-	"description": "{DESCRIPTION}",
-	"main": "{DIST_DIR}/index.js",
+	"description": "CLI and NodeJS utility for packing files into an archive based on glob pattern lists, such as .gitignore files.",
+	"main": "dist/index.js",
 	"files": [
-		"{DIST_DIR}"
+		"dist"
 	],
+	"bin": {
+		"globlist-packer": "dist/cli.js",
+		"globpack": "dist/cli.js"
+	},
 	"repository": {
 		"type": "git",
 		"url": "https://github.com/joshuatz/globlist-packer.git"
@@ -26,7 +30,7 @@
 	"license": "MIT",
 	"scripts": {
 		"clean": "shx rm -rf dist && shx mkdir dist",
-		"build": "yarn clean && tsc"
+		"build": "tsup src/index.ts src/cli.ts --dts src/index.ts"
 	},
 	"dependencies": {
 		"archiver": "^5.3.0",
@@ -40,6 +44,9 @@
 		"@types/archiver": "^5.1.0",
 		"@types/fs-extra": "^9.0.11",
 		"@types/ignore-walk": "^3.0.1",
-		"prettier": "^2.2.1"
+		"prettier": "^2.2.1",
+		"shx": "^0.3.3",
+		"tsup": "^4.9.1",
+		"typescript": "^4.2.4"
 	}
 }
