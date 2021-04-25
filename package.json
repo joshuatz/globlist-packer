@@ -1,7 +1,7 @@
 {
 	"name": "globlist-packer",
 	"version": "0.1.0",
-	"description": "CLI and NodeJS utility for packing files into an archive based on glob pattern lists, such as .gitignore files.",
+	"description": "CLI and NodeJS utility for packing files into an archive based on ignore glob pattern lists, such as .gitignore files.",
 	"type": "module",
 	"main": "./dist/index.cjs",
 	"exports": "./dist/index.js",
@@ -29,8 +29,14 @@
 	},
 	"homepage": "https://github.com/joshuatz/globlist-packer",
 	"keywords": [
+		"ignorelist",
+		"ignore",
 		"globlist",
+		"globlist archive",
+		"globlist zip",
 		"archiver",
+		"glob packer",
+		"gitignore archive",
 		"distributable"
 	],
 	"license": "MIT",

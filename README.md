@@ -1,11 +1,11 @@
 # Globlist-Packer
-> CLI and NodeJS utility for *packing* files based on glob pattern lists, such as `.gitignore` files.
+> CLI and NodeJS utility for *packing* files based on ignore glob pattern lists, such as `.gitignore` files.
 
 ## Demo
 <details>
 	<summary>Show / Hide Demo</summary>
 
-![Animated GIF showing a console, running `npx globpack -i dist.packlistignore`, seeing the tool run, and then inspecting the zip output with `zipinfo`](demo.gif)
+![Animated GIF showing a console, running `npx globpack -i dist.packlistignore`, seeing the tool run, and then inspecting the zip output with `zipinfo`](https://raw.githubusercontent.com/joshuatz/globlist-packer/main/demo.gif)
 </details>
 
 ## Installation
@@ -36,6 +36,8 @@ globpack
 ```
 
 ## Usage
+> 🚨 Warning: Ignore glob lists, such as `.gitignore`, work by either negating, or reversing a previous negation. Meaning, by default all files are included, unless they match a pattern in an ignore list. If you are new to `git`, or this concept, you might find these docs ([Atlassian](https://www.atlassian.com/git/tutorials/saving-changes/gitignore), [git-scm](https://git-scm.com/docs/gitignore)) helpful.
+
 Despite the number of configurable options, this tool is designed to be "zero-config", and can work out-of-the-box with minimal settings, for the majority of use-cases.
 
 For example, if you are working with `git` and wanted to pack your current repo directory to an archive, while keeping files out that are ignored by `.gitignore`, it should be possible with just:
@@ -170,10 +172,15 @@ Multiple considerations are taken around this action:
 - The file is given a long and dynamic filename - highly unlikely to collide with any existing files
 	- If, somehow, a file already exists with that name, the program will halt and not overwrite the existing file
 
+### Default Ignores
+If `includeDefaultIgnores` is set to true, which is also the default value, then a few default ignore patterns are added to prevent unwanted files from ending up in the packing process.
+
+As of writing this, the default ignore patterns are `node_modules` and `.git`, but you can browse [./src](./src/packer.ts) to see for yourself.
+
 ## Change Notes
 Version | Date | Notes
 --- | --- | ---
-`v0.1.0` | {RELEASE_DATE} | Initial Release 🚀
+`v0.1.0` | 04/25/2021 | Initial Release 🚀
 
 ## Related Projects
 Of course, after building this tool I immediately found some that might have fit the bill for what I needed. However, all of these are slightly different from what this tool offers:
