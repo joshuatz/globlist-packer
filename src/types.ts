@@ -27,9 +27,9 @@ export interface PackerOpts {
 	/**
 	 * Used as the entry point to the filewalker, and used as the base to resolve any relative paths that are passed
 	 * - Should be an absolute path
-	 * - CLI Default: process.cwd()
+	 * - Default: process.cwd()
 	 */
-	rootDir: string;
+	rootDir?: string;
 	/**
 	 * These should use the same glob syntax as `.gitignore` files, and are the main input (aside from `rootDir`) to the program in terms of computing what gets included in the archive
 	 * - Just like `.gitignore`, you can override previous exclusions

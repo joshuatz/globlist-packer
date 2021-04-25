@@ -15,7 +15,7 @@ import {
 import { Listr } from 'listr2';
 import { GloblistPacker } from './packer';
 import { ArchiveType, ArchiveTypeOptionsArr, ProgressCallback, Steps } from './types';
-import Package = require('../package.json');
+import Package from '../package.json';
 
 const progressListeners: ProgressCallback[] = [];
 
@@ -154,6 +154,4 @@ const app = command({
 	}
 });
 
-if (require.main === module) {
-	run(app, process.argv.slice(2));
-}
+run(app, process.argv.slice(2));

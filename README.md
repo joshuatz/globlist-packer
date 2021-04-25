@@ -13,6 +13,7 @@ For frequent use, you should really install the package:
 ```bash
 # Globally
 npm i -g globlist-packer
+
 # Local devDependency
 npm i -D globlist-packer
 ```
@@ -21,7 +22,9 @@ Once it is installed, it also exposes two callable names (through `.bin`)
 
 ```bash
 globlist-packer
+
 # Or
+
 globpack
 ```
 
@@ -48,7 +51,7 @@ As much as possible, I try to make all options and flags available through both 
 Option Key | CLI | Description | Type | Default
 --- | --- | --- | --- | ---
 `rootDir` | `root-dir` | Used as the entry point to the filewalker, and used as the base to resolve any relative paths that are passed | `string` | `process.cwd()` (working directory)
-`ignoreListFileNames` | `ignorelist-files` or `i` | Files that are formatted like .gitignore - line delimited glob patterns to include or exclude.<br/><br/>Warning: Order matters! | `string[]` | `[]` (or `['.gitignore']` if `useGitIgnoreFiles === true`)
+`ignoreListFileNames` | `ignorelist-files` or `-i` | Files that are formatted like .gitignore - line delimited glob patterns to include or exclude.<br/><br/>Warning: Order matters! | `string[]` | `[]` (or `['.gitignore']` if `useGitIgnoreFiles === true`)
 `useGitIgnoreFiles` | `use-gitignore-files` | Whether or not to check for, and use, .gitignore files as part of the ruleset | `boolean` | `true`
 `includeDefaultIgnores` | `include-default-ignores` | If true, adds some default excludes that should apply to most projects and helps avoid accidental bundling | `boolean` | `true`
 `includeEmpty` | `include-empty` | Include empty directories in the output archive | `boolean` | `false`
@@ -113,6 +116,9 @@ tests
 package-lock.json
 package.json
 
+# Block recursive packing if ran again
+dist.tgz
+
 # OVERRIDE ignores in .gitignore, adding back build files and artifacts
 !build
 !vendor
@@ -126,7 +132,7 @@ globlist-packer -i dist.packlistignore
 </details>
 
 ## Design Decisions
-This tool is primarily a wrapper around [the `ignore-walk` package](https://www.npmjs.com/package/ignore-walk). Due to some limitations in that package, and complexities of resolving glob patterns (remember: you can have *negation* in glob lists), if the `includeDefaultIgnores` option is true (which is default), this tool will actually temporarily inject a ignore glob list in your project root directory.
+This tool is primarily a wrapper around [the `ignore-walk` package](https://www.npmjs.com/package/ignore-walk). Due to some limitations in that package, and complexities of resolving glob patterns (remember: you can have *negation* in glob lists), if the `includeDefaultIgnores` option is true (which is default), this tool will actually temporarily inject a ignore glob list file in your project root directory.
 
 Multiple considerations are taken around this action:
 

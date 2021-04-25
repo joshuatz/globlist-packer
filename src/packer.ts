@@ -1,9 +1,9 @@
 import type { WalkerOptions } from 'ignore-walk';
-import IgnoreWalk = require('ignore-walk');
-import Archiver = require('archiver');
-import * as fse from 'fs-extra';
-import * as os from 'os';
-import * as path from 'path';
+import IgnoreWalk from 'ignore-walk';
+import Archiver from 'archiver';
+import fse from 'fs-extra';
+import os from 'os';
+import path from 'path';
 import { removeEndSlash } from './utils';
 import { PackerOpts } from './types';
 
@@ -25,7 +25,7 @@ function replaceLastInstanceInString(input: string, replace: string, replacement
 }
 
 export function GloblistPacker({
-	rootDir,
+	rootDir: inputRootDir,
 	ignoreListFileNames = [],
 	useGitIgnoreFiles = true,
 	includeDefaultIgnores = true,
@@ -47,6 +47,7 @@ export function GloblistPacker({
 				console.log(...args);
 			}
 		};
+		const rootDir: string = typeof inputRootDir === 'string' ? inputRootDir : process.cwd();
 		logger({
 			rootDir,
 			ignoreListFileNames,
