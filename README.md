@@ -1,6 +1,13 @@
 # Globlist-Packer
 > CLI and NodeJS utility for *packing* files based on glob pattern lists, such as `.gitignore` files.
 
+## Demo
+<details>
+	<summary>Show / Hide Demo</summary>
+
+![Animated GIF showing a console, running `npx globpack -i dist.packlistignore`, seeing the tool run, and then inspecting the zip output with `zipinfo`](demo.gif)
+</details>
+
 ## Installation
 Use it with / without installing:
 
@@ -40,7 +47,7 @@ npx globlist-packer
 Or, if you want a specific globlist to be used:
 
 ```bash
-# This will create `dist.tgz` in same directory, based on glob(s) contained in `dist.ignorelist`
+# This will create `dist.zip` in same directory, based on glob(s) contained in `dist.ignorelist`
 npx globlist-packer -i dist.ignorelist
 ```
 
@@ -73,7 +80,7 @@ Option Key | CLI | Description | Type | Default
 `outDir` | `out-dir` or `-d` | Where to save the generated archive(s). Defaults to the root directory and/or calling directory. | `string` | The root directory, or calling directory.
 `copyFilesTo` | `copy-files-to` | Path to directory to copy all matching files to, instead of creating a packed archive. If used, nullifies a lot of other settings, and causes no archive to be generated. | `string` | NA
 `archiveName` | `archive-name` or `-n` | Name for the generated archive.<br/>File extension is optional, and will be overwritten anyways, based on `archiveType` | `string` | Will default to primary non-gitignore ignore file, and if that is not available, to simply `packed.{ext}`
-`archiveType` | `archive-type` or `-t` | Type of generated archive file. Not the same as file extension. | `'tar'` or  `'zip'` | `'tar'`
+`archiveType` | `archive-type` or `-t` | Type of generated archive file. Not the same as file extension. | `'tar'` or  `'zip'` | `'zip'`
 `archiveRootDirName` | `archive-root-dir-name` | Inject a single folder in the root of the archive, with this name, which will contain all collected files. | `string` | NA / Not used
 `maxFileCount` | `max-files` or `-m` | If you are worried about accidentally including a massive number of files and you want to bail out early of the archiving process if this happens, you can set a hard cap with this option. | `number` |  NA / Infinity
 `verbose` | `verbose` | Enable extra logging to the console / stdout | `boolean` | `false`
@@ -133,6 +140,7 @@ package.json
 
 # Block recursive packing if ran again
 dist.tgz
+dist.zip
 
 # OVERRIDE ignores in .gitignore, adding back build files and artifacts
 !build

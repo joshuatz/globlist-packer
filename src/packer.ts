@@ -34,7 +34,7 @@ export function GloblistPacker({
 	outDir,
 	copyFilesTo,
 	archiveName,
-	archiveType = 'tar',
+	archiveType = 'zip',
 	archiveRootDirName,
 	archiveOptions = {},
 	maxFileCount,

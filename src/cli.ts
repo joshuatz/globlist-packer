@@ -122,7 +122,7 @@ const app = command({
 			long: 'archive-type',
 			short: 't',
 			defaultValue: () => {
-				return 'tar' as ArchiveType;
+				return 'zip' as ArchiveType;
 			},
 			defaultValueIsSerializable: true,
 			description: 'Type of generated archive file. Not the same as file extension.'

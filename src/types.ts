@@ -77,7 +77,7 @@ export interface PackerOpts {
 	archiveName?: string;
 	/**
 	 * Type of generated archive file. Not the same as file extension.
-	 * @default 'tar'
+	 * @default 'zip'
 	 */
 	archiveType?: ArchiveType;
 	/**
