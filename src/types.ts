@@ -8,6 +8,7 @@ export const Steps = [
 	'Cleaning Up',
 	'Done!'
 ] as const;
+export type Step = typeof Steps[number];
 
 export type ArchiveType = archiver.Format;
 export const ArchiveTypeOptionsArr: ArchiveType[] = ['tar', 'zip'];
@@ -63,6 +64,11 @@ export interface PackerOpts {
 	 * @default PackerOpts.rootDir
 	 */
 	outDir?: string;
+	/**
+	 * Path to directory to copy all matching files to, instead of creating a packed archive. If used, nullifies a lot of other settings, and causes no archive to be generated.
+	 * @default undefined
+	 */
+	copyFilesTo?: string;
 	/**
 	 * Name for the generated archive.
 	 * - Will default to primary non-gitignore ignore file, and if that is not available, to simply `packed.{ext}`

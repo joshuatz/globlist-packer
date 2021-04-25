@@ -44,6 +44,20 @@ Or, if you want a specific globlist to be used:
 npx globlist-packer -i dist.ignorelist
 ```
 
+You can also use it via JS / TS, by installing the package and then importing:
+
+```js
+// ESM import
+import {GloblistPacker} from 'globlist-packer';
+
+GloblistPacker({
+	ignoreListFileNames: ['dist.ignorelist'],
+	// This will create `distribution.zip`
+	archiveName: 'distribution',
+	archiveType: 'zip'
+});
+```
+
 > For more advanced uses, see options below, and examples under ["Usage Examples"](#usage-examples).
 
 As much as possible, I try to make all options and flags available through both the main JS entry-point, as well as through the CLI. Refer to the table below, the source code, or use `--help` with the CLI.
@@ -57,6 +71,7 @@ Option Key | CLI | Description | Type | Default
 `includeEmpty` | `include-empty` | Include empty directories in the output archive | `boolean` | `false`
 `followSymlink` | `follow-symlink` | Whether or not to follow symlinks when copying files to the archive. | `boolean` | `false`
 `outDir` | `out-dir` or `-d` | Where to save the generated archive(s). Defaults to the root directory and/or calling directory. | `string` | The root directory, or calling directory.
+`copyFilesTo` | `copy-files-to` | Path to directory to copy all matching files to, instead of creating a packed archive. If used, nullifies a lot of other settings, and causes no archive to be generated. | `string` | NA
 `archiveName` | `archive-name` or `-n` | Name for the generated archive.<br/>File extension is optional, and will be overwritten anyways, based on `archiveType` | `string` | Will default to primary non-gitignore ignore file, and if that is not available, to simply `packed.{ext}`
 `archiveType` | `archive-type` or `-t` | Type of generated archive file. Not the same as file extension. | `'tar'` or  `'zip'` | `'tar'`
 `archiveRootDirName` | `archive-root-dir-name` | Inject a single folder in the root of the archive, with this name, which will contain all collected files. | `string` | NA / Not used
@@ -131,6 +146,13 @@ globlist-packer -i dist.packlistignore
 ```
 </details>
 
+## Special Use-Case: Copying Files to Directory
+This is semi-experimental, as it is not the main intended use of the program, but for convenience I have added an option that lets you use this to *only* copy files (based on globlists) to a target directory, and skip the archive / tar / zip generation.
+
+To use this feature, pass a string to the `copy-files-to` option (or `copyFilesTo` via JS API) - this will cause the tool to skip all archiver steps and only handle copying files. You can still use all the input control options (such as `ignorelist-files`, `include-default-ignores`, etc.).
+
+The truth is that this feature complicates things a little bit. For example, if the target output directory is nested inside the root directory, then I have to block files that live inside the output directory, to prevent recursive copying in case the tool is ran more than once without clearing the output.
+
 ## Design Decisions
 This tool is primarily a wrapper around [the `ignore-walk` package](https://www.npmjs.com/package/ignore-walk). Due to some limitations in that package, and complexities of resolving glob patterns (remember: you can have *negation* in glob lists), if the `includeDefaultIgnores` option is true (which is default), this tool will actually temporarily inject a ignore glob list file in your project root directory.
 
@@ -144,9 +166,6 @@ Multiple considerations are taken around this action:
 Version | Date | Notes
 --- | --- | ---
 `v0.1.0` | {RELEASE_DATE} | Initial Release 🚀
-
-## Todos / Future Improvements
-Ideally, this should support packing to a directory, *without* archiving. So that you could use it to do something like help with preparing `/dist`.
 
 ## Related Projects
 Of course, after building this tool I immediately found some that might have fit the bill for what I needed. However, all of these are slightly different from what this tool offers:

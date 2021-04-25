@@ -1,11 +1,11 @@
-import type { WalkerOptions } from 'ignore-walk';
-import IgnoreWalk from 'ignore-walk';
 import Archiver from 'archiver';
 import fse from 'fs-extra';
+import type { WalkerOptions } from 'ignore-walk';
+import IgnoreWalk from 'ignore-walk';
 import os from 'os';
 import path from 'path';
-import { removeEndSlash } from './utils';
 import { PackerOpts } from './types';
+import { removeEndSlash } from './utils';
 
 const DEFAULT_ARCHIVE_BASENAME = 'packed';
 const DEFAULT_IGNORE_GLOBS = ['node_modules', '.git'];
@@ -32,6 +32,7 @@ export function GloblistPacker({
 	includeEmpty = false,
 	followSymlink = false,
 	outDir,
+	copyFilesTo,
 	archiveName,
 	archiveType = 'tar',
 	archiveRootDirName,
@@ -47,7 +48,40 @@ export function GloblistPacker({
 				console.log(...args);
 			}
 		};
+
+		/**
+		 * Should be populated before, and then used during, the file walking process. Any directories in this path will be blocked from being added, **OR** their descendants.
+		 * - Use with caution
+		 */
+		const blockFolders: string[] = [];
+
+		// Resolve some input paths
 		const rootDir: string = typeof inputRootDir === 'string' ? inputRootDir : process.cwd();
+		const rootDirUnslashedEnd = removeEndSlash(rootDir);
+		if (typeof copyFilesTo === 'string') {
+			if (path.isAbsolute(copyFilesTo)) {
+				copyFilesTo = removeEndSlash(copyFilesTo);
+			} else {
+				// Resolve relative path with rootDir
+				copyFilesTo = removeEndSlash(path.resolve(rootDir, copyFilesTo));
+			}
+			// Make sure that there is no recursive copying going on if the tool is ran more than once
+			blockFolders.push(copyFilesTo);
+		} else {
+			copyFilesTo = undefined;
+		}
+		// This might be used, depending on inputs
+		let tempDirPath: string | null = null;
+
+		// Safety check - if output is folder instead of archive, make sure output dir is not same as input
+		if (copyFilesTo) {
+			if (path.normalize(copyFilesTo) === path.normalize(rootDirUnslashedEnd)) {
+				throw new Error(
+					'Stopping process! - copyFilesTo is the same directory as rootDir - this would overrwrite files in-place and is likely unwanted.'
+				);
+			}
+		}
+
 		logger({
 			rootDir,
 			ignoreListFileNames,
@@ -56,6 +90,7 @@ export function GloblistPacker({
 			includeEmpty,
 			followSymlink,
 			outDir,
+			copyFilesTo,
 			archiveName,
 			archiveType,
 			archiveRootDirName,
@@ -63,7 +98,7 @@ export function GloblistPacker({
 			maxFileCount,
 			verbose
 		});
-		const rootDirUnslashedEnd = removeEndSlash(rootDir);
+
 		const ignoreListFilesBasenames = ignoreListFileNames.map((i) => path.basename(i));
 
 		/**
@@ -125,95 +160,58 @@ export function GloblistPacker({
 			return reject(`Matched file count of ${fileListResult.length} exceeds maxFileCount of ${maxFileCount}`);
 		}
 
-		logger(fileListResult);
+		logger('Scanned files', fileListResult);
 
-		let archiveFileNameBaseNoExt: string | undefined = undefined;
-
-		// Explicit option overrides everything else
-		if (archiveName) {
-			// Remove extension
-			archiveFileNameBaseNoExt = archiveName.replace(path.extname(archiveName), '');
+		// Start prepping for file copying, by readying the target directory
+		/**
+		 * The path of the root (most parent) folder into which files are copied
+		 */
+		let rootDestDirPath: string;
+		/**
+		 * The actual destination path for which files are cloned into. In the case of a pseudo parent (injected by options), this will differ from `rootDestDirPath`, otherwise, they should be equal
+		 */
+		let copyDestDirPath: string;
+		if (copyFilesTo) {
+			await fse.ensureDir(copyFilesTo);
+			rootDestDirPath = copyFilesTo;
+		} else {
+			// Use OS temp dir
+			tempDirPath = await fse.mkdtemp(`${os.tmpdir()}${path.sep}`);
+			rootDestDirPath = tempDirPath;
 		}
-
-		// First default = based on ignore list
-		if (!archiveFileNameBaseNoExt) {
-			const firstNonGitIgnoreList = ignoreListFilesBasenames.filter((f) => f !== '.gitignore')[0];
-			if (firstNonGitIgnoreList) {
-				archiveFileNameBaseNoExt = firstNonGitIgnoreList.replace(path.extname(firstNonGitIgnoreList), '');
-			}
-		}
-
-		// Final fallback - hardcoded name
-		if (!archiveFileNameBaseNoExt) {
-			archiveFileNameBaseNoExt = DEFAULT_ARCHIVE_BASENAME;
-		}
-
-		// Add extension
-		const archiveExt = archiveType === 'tar' ? '.tgz' : '.zip';
-		const archiveBaseName = `${archiveFileNameBaseNoExt}${archiveExt}`;
-
-		// Prepare archive *stream*
-		let destinationDir = rootDirUnslashedEnd;
-		if (outDir) {
-			if (path.isAbsolute(outDir)) {
-				destinationDir = removeEndSlash(outDir);
-			} else {
-				// Resolve relative path with rootDir
-				destinationDir = removeEndSlash(path.resolve(rootDir, outDir));
-			}
-		}
-
-		// Create stream and archiver instance
-		const archiveAbsPath = `${destinationDir}${path.sep}${archiveBaseName}`;
-		const archiveOutStream = fse.createWriteStream(archiveAbsPath);
-		const archive = Archiver(archiveType, {
-			...archiveOptions,
-			zlib: {
-				level: 6,
-				...(archiveOptions.zlib || {})
-			}
-		});
-		// Attach listeners to archiver
-		archiveOutStream.on('close', async () => {
-			logger(`${archive.pointer()} total bytes`);
-			logger('archiver has been finalized and the output file descriptor has closed.');
-			// Cleanup temp dir
-			onStepChange('Cleaning Up');
-			await fse.remove(tempDirPath);
-			logger(`Deleted ${tempDirPath}`);
-			onStepChange('Done!');
-			resolve(archiveAbsPath);
-		});
-		archive.on('error', reject);
-		archive.on('warning', (err) => {
-			if (err.code === 'ENOENT') {
-				logger(err);
-			} else {
-				reject(err);
-			}
-		});
-		// Hookup pipe
-		archive.pipe(archiveOutStream);
-
-		// Start prepping by creating a temporary directory
-		const tempDirPath = await fse.mkdtemp(`${os.tmpdir()}${path.sep}`);
-		let rootDestDirPath = tempDirPath;
+		copyDestDirPath = rootDestDirPath;
 
 		// If (pseudo) root dir is required, go ahead and create it
 		if (archiveRootDirName) {
-			rootDestDirPath = `${tempDirPath}${path.sep}${archiveRootDirName}`;
-			await fse.mkdirp(path.normalize(rootDestDirPath));
+			copyDestDirPath = `${removeEndSlash(rootDestDirPath)}${path.sep}${archiveRootDirName}`;
+			await fse.mkdirp(path.normalize(copyDestDirPath));
 		}
 
 		onStepChange('Copying files');
-		logger(`Copying ${fileListResult.length} file(s) to ${rootDestDirPath}`);
+		logger(`Copying ${fileListResult.length} file(s) to ${copyDestDirPath}`);
 
+		const blockedFiles: Array<{
+			absInputPath: string;
+			blockedBy: string;
+		}> = [];
+		const copiedFilesRelativePaths: string[] = [];
 		await Promise.all(
 			fileListResult.map(async (relativeFilePath) => {
 				// NOTE: the walker only returns file paths, not directories.
 				let absInputPath = getAbsNormalized(rootDir, relativeFilePath);
-				let absDestPath = getAbsNormalized(rootDestDirPath, relativeFilePath);
+				let absDestPath = getAbsNormalized(copyDestDirPath, relativeFilePath);
 				let baseName = path.basename(absInputPath);
+
+				// Check for high priority blocks
+				for (const blockFolder of blockFolders) {
+					if (absInputPath.includes(path.normalize(blockFolder))) {
+						blockedFiles.push({
+							absInputPath,
+							blockedBy: blockFolder
+						});
+						return;
+					}
+				}
 
 				// Allow user-specified override of filename, or omission
 				const userTransformResult = await fileNameTransformer({
@@ -222,6 +220,10 @@ export function GloblistPacker({
 				});
 
 				if (userTransformResult === false) {
+					blockedFiles.push({
+						absInputPath,
+						blockedBy: 'user provided fileNameTransformer'
+					});
 					return;
 				}
 
@@ -242,15 +244,99 @@ export function GloblistPacker({
 					await fse.copyFile(absInputPath, absDestPath);
 				}
 
+				copiedFilesRelativePaths.push(relativeFilePath);
+
 				return;
 			})
 		);
 
-		// Archive the temp dir
-		onStepChange('Compressing');
-		archive.directory(tempDirPath, false);
+		if (verbose && blockedFiles.length) {
+			console.table(blockedFiles);
+		}
 
-		onStepChange('Finalizing and saving archive');
-		archive.finalize();
+		logger('Final list of copied files:', copiedFilesRelativePaths);
+
+		// Skip archiver step - just copied files
+		if (!!copyFilesTo) {
+			// Nothing else to do - we already copied files
+			onStepChange('Done!');
+		}
+		// Regular archiver mode
+		else {
+			let archiveFileNameBaseNoExt: string | undefined = undefined;
+
+			// Explicit option overrides everything else
+			if (archiveName) {
+				// Remove extension
+				archiveFileNameBaseNoExt = archiveName.replace(path.extname(archiveName), '');
+			}
+
+			// First default = based on ignore list
+			if (!archiveFileNameBaseNoExt) {
+				const firstNonGitIgnoreList = ignoreListFilesBasenames.filter((f) => f !== '.gitignore')[0];
+				if (firstNonGitIgnoreList) {
+					archiveFileNameBaseNoExt = firstNonGitIgnoreList.replace(path.extname(firstNonGitIgnoreList), '');
+				}
+			}
+
+			// Final fallback - hardcoded name
+			if (!archiveFileNameBaseNoExt) {
+				archiveFileNameBaseNoExt = DEFAULT_ARCHIVE_BASENAME;
+			}
+
+			// Add extension
+			const archiveExt = archiveType === 'tar' ? '.tgz' : '.zip';
+			const archiveBaseName = `${archiveFileNameBaseNoExt}${archiveExt}`;
+
+			// Prepare archive *stream*
+			let destinationDir = rootDirUnslashedEnd;
+			if (outDir) {
+				if (path.isAbsolute(outDir)) {
+					destinationDir = removeEndSlash(outDir);
+				} else {
+					// Resolve relative path with rootDir
+					destinationDir = removeEndSlash(path.resolve(rootDir, outDir));
+				}
+			}
+
+			// Create stream and archiver instance
+			const archiveAbsPath = `${destinationDir}${path.sep}${archiveBaseName}`;
+			const archiveOutStream = fse.createWriteStream(archiveAbsPath);
+			const archive = Archiver(archiveType, {
+				...archiveOptions,
+				zlib: {
+					level: 6,
+					...(archiveOptions.zlib || {})
+				}
+			});
+			// Attach listeners to archiver
+			archiveOutStream.on('close', async () => {
+				logger(`${archive.pointer()} total bytes`);
+				logger('archiver has been finalized and the output file descriptor has closed.');
+				// Cleanup temp dir
+				onStepChange('Cleaning Up');
+				await fse.remove(tempDirPath!);
+				logger(`Deleted ${tempDirPath}`);
+				onStepChange('Done!');
+				resolve(archiveAbsPath);
+			});
+			archive.on('error', reject);
+			archive.on('warning', (err) => {
+				if (err.code === 'ENOENT') {
+					logger(err);
+				} else {
+					reject(err);
+				}
+			});
+			// Hookup pipe
+			archive.pipe(archiveOutStream);
+
+			// Archive the temp dir
+			onStepChange('Compressing');
+			archive.directory(rootDestDirPath, false);
+
+			onStepChange('Finalizing and saving archive');
+			archive.finalize();
+		}
 	});
 }

@@ -14,28 +14,29 @@ import {
 } from 'cmd-ts';
 import { Listr } from 'listr2';
 import { GloblistPacker } from './packer';
-import { ArchiveType, ArchiveTypeOptionsArr, ProgressCallback, Steps } from './types';
+import { ArchiveType, ArchiveTypeOptionsArr, ProgressCallback, Step, Steps } from './types';
 import Package from '../package.json';
 
 const progressListeners: ProgressCallback[] = [];
 
 // "tasks" in this sense are more slots for signals coming from the actual application - they aren't actually executing anything, just tracking progress
 
-const TaskList = Steps.map((stepStr) => {
-	const taskCompleteSignal = new Promise<void>((res) => {
-		progressListeners.push((updatedStep) => {
-			if (updatedStep === stepStr) {
-				res();
-			}
+function getListrTasks(skipSteps?: Step[]) {
+	const TaskList = Steps.filter((s) => !skipSteps?.includes(s)).map((stepStr) => {
+		const taskCompleteSignal = new Promise<void>((res) => {
+			progressListeners.push((updatedStep) => {
+				if (updatedStep === stepStr) {
+					res();
+				}
+			});
 		});
+		return {
+			title: stepStr,
+			task: () => taskCompleteSignal
+		};
 	});
-	return {
-		title: stepStr,
-		task: () => taskCompleteSignal
-	};
-});
-
-const tasks = new Listr(TaskList, {});
+	return new Listr(TaskList, {});
+}
 
 const app = command({
 	name: Package.name,
@@ -103,6 +104,12 @@ const app = command({
 			description:
 				'Where to save the generated archive(s). Defaults to the root directory and/or calling directory.'
 		}),
+		copyFilesTo: option({
+			type: optional(CmdString),
+			long: 'copy-files-to',
+			description:
+				'Path to directory to copy all matching files to, instead of creating a packed archive. If used, nullifies a lot of other settings, and causes no archive to be generated.'
+		}),
 		archiveName: option({
 			type: optional(CmdString),
 			long: 'archive-name',
@@ -144,6 +151,14 @@ const app = command({
 		})
 	},
 	handler: async (args) => {
+		let skipTasks: Step[] = [];
+
+		// If copying to dir, instead of archiving, make sure to not wait on archive task emits
+		if (!!args.copyFilesTo) {
+			skipTasks = ['Compressing', 'Finalizing and saving archive', 'Cleaning Up'];
+		}
+
+		const tasks = getListrTasks(skipTasks);
 		tasks.run();
 		await GloblistPacker({
 			...args,
